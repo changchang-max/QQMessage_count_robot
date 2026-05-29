@@ -1,0 +1,24 @@
+{
+    "self_id": 3952055354,
+    "user_id": 3338366373,
+    "time": 1780050067,
+    "message_id": 71719734,
+    "message_seq": 71719734,
+    "real_id": 71719734,
+    "real_seq": "578",
+    "message_type": "group",
+    "sender": {
+        "user_id": 3338366373,
+        "nickname": "寝る子は育つ",
+        "card": "",
+        "role": "member"
+    },
+    "raw_message": "[CQ:image,file=9FC3F4A1B8C86398295EA6D2C5EDB763.png,sub_type=0,url=https://multimedia.nt.qq.com.cn/download?appid=1407&amp;fileid=EhS5K_wYqOFGjD3iAKyFjRFpLAvjfxiwr0Yg_woo-5q7nqPelAMyBHByb2RQgL2jAVoQMhmF3fE14qj0xyt3hu31e3oC9_WCAQJuag&amp;rkey=CAISMBiTc4SJTJz2fCDQPZeiBmPVLAABdVCWv9cZurhwUO6MOFEi-R_vL8vLsM2nd9D0xA,file_size=1152944]",
+    "font": 14,
+    "sub_type": "normal",
+    "message": "[CQ:image,file=9FC3F4A1B8C86398295EA6D2C5EDB763.png,sub_type=0,url=https://multimedia.nt.qq.com.cn/download?appid=1407&amp;fileid=EhS5K_wYqOFGjD3iAKyFjRFpLAvjfxiwr0Yg_woo-5q7nqPelAMyBHByb2RQgL2jAVoQMhmF3fE14qj0xyt3hu31e3oC9_WCAQJuag&amp;rkey=CAISMBiTc4SJTJz2fCDQPZeiBmPVLAABdVCWv9cZurhwUO6MOFEi-R_vL8vLsM2nd9D0xA,file_size=1152944]",
+    "message_format": "string",
+    "post_type": "message",
+    "group_id": 459134559,
+    "group_name": "小阳人、Yr、。"
+}
