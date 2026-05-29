@@ -66,19 +66,34 @@ class MessageHandler:
         return os.path.join(self.messages_dir, f"{user_id}.json")
     
     def _load_user_data(self, user_id: str) -> Dict:
-        """加载用户数据"""
+        """加载用户数据（优先从缓存加载）"""
+        # 首先检查缓存
+        if user_id in self._data_cache:
+            return self._data_cache[user_id].copy()  # 返回副本，避免修改原始数据
+        
+        # 缓存中没有，从文件加载
         file_path = self._get_user_file_path(user_id)
         if os.path.exists(file_path):
             try:
                 with open(file_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
             except Exception as e:
-                print(f"加载用户 {user_id} 数据失败: {e}")
+                self.logger.error(f"加载用户 {user_id} 数据失败: {e}")
         return {}
     
     def _save_user_data(self, user_id: str, data: Dict):
         """保存用户数据到缓存，定时写入磁盘"""
+        # 直接保存数据到缓存
         self._data_cache[user_id] = data
+        
+        # 记录调试信息
+        if user_id in data and isinstance(data, dict):
+            date_keys = list(data.keys())
+            if date_keys:
+                latest_date = date_keys[-1]
+                if latest_date in data and isinstance(data[latest_date], dict):
+                    group_count = len(data[latest_date])
+                    self.logger.debug(f"用户 {user_id} 数据已缓存，最新日期 {latest_date}，群组数 {group_count}")
     
     def _periodic_save_thread(self):
         """定时保存数据到磁盘（线程版本）"""
