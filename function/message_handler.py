@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 import asyncio
 import threading
 import time
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from .logger import get_logger
+from .apply_add_friend import FriendRequestHandler
 
 class MessageHandler:
     def __init__(self):
@@ -33,6 +34,8 @@ class MessageHandler:
             "configs_dir": self.configs_dir,
             "follows_count": len(self.follows)
         })
+        
+        self.friend_request_handler = FriendRequestHandler()
     
     def _load_follows(self) -> set:
         """加载关注列表"""
@@ -125,28 +128,37 @@ class MessageHandler:
         dt = datetime.fromtimestamp(timestamp)
         return dt.strftime("%Y-%m-%d")
     
-    def handle_message(self, message_data: Dict[str, Any]) -> Optional[str]:
+    def handle_message(self, message_data: Dict[str, Any]) -> Tuple[Optional[str], Optional[Dict]]:
         """
-        处理接收到的消息
-        返回：需要回复的消息内容，如果没有回复则返回None
+        处理接收到的消息。
+        返回 (reply_text, action_data)：
+          - reply_text: 需要发送的私聊文本，无则为 None
+          - action_data: 需要直接发送的 WebSocket action，无则为 None
         """
         try:
             # 记录消息日志
             self.logger.log_message(message_data)
-            
+
+            post_type = message_data.get("post_type")
             message_type = message_data.get("message_type")
-            
+
+            # 好友请求
+            if post_type == "request":
+                action = self.friend_request_handler.handle(message_data)
+                return None, action
+
+            # 普通消息
             if message_type == "group":
-                return self._handle_group_message(message_data)
+                return self._handle_group_message(message_data), None
             elif message_type == "private":
-                return self._handle_private_message(message_data)
+                return self._handle_private_message(message_data), None
             else:
-                self.logger.warning(f"未知消息类型: {message_type}")
-                return None
-                
+                self.logger.warning(f"未知消息类型: post_type={post_type}, message_type={message_type}")
+                return None, None
+
         except Exception as e:
             self.logger.error(f"处理消息时出错: {e}")
-            return None
+            return None, None
     
     def _handle_group_message(self, message_data: Dict[str, Any]) -> Optional[str]:
         """处理群聊消息"""

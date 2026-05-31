@@ -1,0 +1,8 @@
+{
+    "timestamp": "2026-01-01T00:00:00.000000",
+    "level": "DEBUG",
+    "message": "收到原始消息",
+    "extra": {
+        "raw_message": "{\"time\":1000000000,\"self_id\":100000000,\"post_type\":\"request\",\"request_type\":\"friend\",\"user_id\":200000000,\"comment\":\"验证消息示例\",\"flag\":\"1000000000\"}"
+    }
+}

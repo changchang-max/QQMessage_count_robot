@@ -1,22 +1,22 @@
 {
-    "self_id": 3952055354,
-    "user_id": 2774118934,
-    "time": 1780050764,
-    "message_id": 1226919751,
-    "message_seq": 1226919751,
-    "real_id": 1226919751,
-    "real_seq": "48",
+    "self_id": 100000001,
+    "user_id": 200000002,
+    "time": 1000000001,
+    "message_id": 10000002,
+    "message_seq": 10000002,
+    "real_id": 10000002,
+    "real_seq": "1",
     "message_type": "private",
     "sender": {
-        "user_id": 2774118934,
-        "nickname": "print",
+        "user_id": 200000002,
+        "nickname": "示例用户",
         "card": ""
     },
-    "raw_message": "测试私聊消息",
+    "raw_message": "示例私聊消息内容",
     "font": 14,
     "sub_type": "friend",
-    "message": "测试私聊消息",
+    "message": "示例私聊消息内容",
     "message_format": "string",
     "post_type": "message",
-    "target_id": 2774118934
+    "target_id": 200000002
 }

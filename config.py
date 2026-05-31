@@ -1,11 +1,14 @@
 """
 QQ机器人配置文件
+敏感配置（如 WS_TOKEN）建议通过环境变量传入，或复制本文件为 config_local.py 填写后使用。
 """
+
+import os
 
 # WebSocket服务器配置
 WS_HOST = "0.0.0.0"
 WS_PORT = 9001
-WS_TOKEN = "napcat_token_070421"
+WS_TOKEN = os.environ.get("NAPCAT_TOKEN", "your_napcat_token_here")
 
 # 数据存储配置
 MESSAGES_DIR = "messages"

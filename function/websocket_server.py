@@ -58,24 +58,33 @@ class WebSocketServer:
             # 解析消息
             message_data = json.loads(message)
             self.logger.debug("收到原始消息", {"raw_message": message[:200]})
-            
-            # 处理消息
-            response = self.message_handler.handle_message(message_data)
-            
-            # 如果有回复，发送回复
-            if response:
-                reply_data = {
+
+            # 处理消息，返回 (reply_text, action_data)
+            reply_text, action_data = self.message_handler.handle_message(message_data)
+
+            # 发送文本回复（私聊）
+            if reply_text:
+                reply = {
                     "action": "send_private_msg",
                     "params": {
                         "user_id": message_data.get("user_id"),
-                        "message": response
-                    }
+                        "message": reply_text,
+                    },
                 }
-                await websocket.send(json.dumps(reply_data, ensure_ascii=False))
-                self.logger.info(f"发送回复给用户 {message_data.get('user_id')}", {
-                    "response": response[:100]
-                })
-            
+                await websocket.send(json.dumps(reply, ensure_ascii=False))
+                self.logger.info(
+                    f"发送私聊回复给用户 {message_data.get('user_id')}",
+                    {"response": reply_text[:100]},
+                )
+
+            # 发送 action（如通过好友申请）
+            if action_data:
+                await websocket.send(json.dumps(action_data, ensure_ascii=False))
+                self.logger.info(
+                    f"发送 action: {action_data.get('action')}",
+                    {"params": action_data.get("params")},
+                )
+
         except json.JSONDecodeError as e:
             self.logger.error(f"JSON解析错误: {e}", {"raw_message": message[:200]})
         except Exception as e:
