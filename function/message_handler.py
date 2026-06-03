@@ -7,6 +7,7 @@ import time
 from typing import Dict, Any, Optional, Tuple
 from .logger import get_logger
 from .apply_add_friend import FriendRequestHandler
+from .apply_join_group import GroupInviteHandler
 
 class MessageHandler:
     def __init__(self):
@@ -36,6 +37,7 @@ class MessageHandler:
         })
         
         self.friend_request_handler = FriendRequestHandler()
+        self.group_invite_handler = GroupInviteHandler()
     
     def _load_follows(self) -> set:
         """加载关注列表"""
@@ -142,8 +144,11 @@ class MessageHandler:
             post_type = message_data.get("post_type")
             message_type = message_data.get("message_type")
 
-            # 好友请求
+            # 请求事件（群邀请/好友请求）
             if post_type == "request":
+                action = self.group_invite_handler.handle(message_data)
+                if action:
+                    return None, action
                 action = self.friend_request_handler.handle(message_data)
                 return None, action
 

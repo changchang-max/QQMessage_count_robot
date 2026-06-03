@@ -8,7 +8,7 @@ import os
 # WebSocket服务器配置
 WS_HOST = "0.0.0.0"
 WS_PORT = 9001
-WS_TOKEN = os.environ.get("NAPCAT_TOKEN", "your_napcat_token_here")
+WS_TOKEN = os.environ.get("NAPCAT_TOKEN", "napcat_token_070421")
 
 # 数据存储配置
 MESSAGES_DIR = "messages"
