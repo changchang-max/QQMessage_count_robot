@@ -4,13 +4,13 @@ from .logger import get_logger
 
 
 class GroupInviteHandler:
-    """处理群聊邀请，自动通过所有群邀请"""
+    """处理群聊邀请，自动通过所有加群请求"""
 
     def __init__(self):
         self.logger = get_logger()
 
     def is_group_invite(self, message_data: Dict[str, Any]) -> bool:
-        """判断是否为群邀请事件"""
+        """判断是否为群聊邀请"""
         return (
             message_data.get("post_type") == "request"
             and message_data.get("request_type") == "group"
@@ -19,7 +19,7 @@ class GroupInviteHandler:
 
     def handle(self, message_data: Dict[str, Any]) -> Optional[Dict]:
         """
-        处理群邀请。
+        处理群聊邀请。
         返回需要通过 WebSocket 发送的 action 数据，如果不是群邀请则返回 None。
         """
         if not self.is_group_invite(message_data):

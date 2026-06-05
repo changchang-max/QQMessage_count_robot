@@ -144,7 +144,7 @@ class MessageHandler:
             post_type = message_data.get("post_type")
             message_type = message_data.get("message_type")
 
-            # 请求事件（群邀请/好友请求）
+            # 请求事件：先处理群邀请，再处理好友请求
             if post_type == "request":
                 action = self.group_invite_handler.handle(message_data)
                 if action:
