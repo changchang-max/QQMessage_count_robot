@@ -25,6 +25,9 @@ SAVE_INTERVAL = 60
 # 查询天数
 QUERY_DAYS = 7
 
+# 管理员QQ
+ADMIN_QQ = os.environ.get("ADMIN_QQ", "")
+
 # 调试模式
 DEBUG = True
 

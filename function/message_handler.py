@@ -8,6 +8,7 @@ from typing import Dict, Any, Optional, Tuple
 from .logger import get_logger
 from .apply_add_friend import FriendRequestHandler
 from .apply_join_group import GroupInviteHandler
+import config
 
 class MessageHandler:
     def __init__(self):
@@ -38,6 +39,8 @@ class MessageHandler:
         
         self.friend_request_handler = FriendRequestHandler()
         self.group_invite_handler = GroupInviteHandler()
+
+        self._notice_state = {"active": False, "expected_count": 0, "messages": [], "awaiting_confirm": False}
     
     def _load_follows(self) -> set:
         """加载关注列表"""
@@ -130,7 +133,7 @@ class MessageHandler:
         dt = datetime.fromtimestamp(timestamp)
         return dt.strftime("%Y-%m-%d")
     
-    def handle_message(self, message_data: Dict[str, Any]) -> Tuple[Optional[str], Optional[Dict]]:
+    def handle_message(self, message_data: Dict[str, Any], send_private_msg=None) -> Tuple[Optional[str], Optional[Dict]]:
         """
         处理接收到的消息。
         返回 (reply_text, action_data)：
@@ -156,7 +159,7 @@ class MessageHandler:
             if message_type == "group":
                 return self._handle_group_message(message_data), None
             elif message_type == "private":
-                return self._handle_private_message(message_data), None
+                return self._handle_private_message(message_data, send_private_msg), None
             else:
                 self.logger.warning(f"未知消息类型: post_type={post_type}, message_type={message_type}")
                 return None, None
@@ -208,11 +211,29 @@ class MessageHandler:
         })
         return None
     
-    def _handle_private_message(self, message_data: Dict[str, Any]) -> Optional[str]:
+    def _handle_private_message(self, message_data: Dict[str, Any], send_private_msg=None) -> Optional[str]:
         """处理私聊消息"""
         user_id = str(message_data.get("user_id"))
         message = message_data.get("message", "").strip()
-        
+        is_admin = (user_id == str(config.ADMIN_QQ))
+
+        # 管理员公告流程
+        if is_admin:
+            if self._notice_state["awaiting_confirm"]:
+                if message == "/yes":
+                    result = self._handle_notice_yes(send_private_msg)
+                    self.logger.log_command("/yes", user_id, result)
+                    return result
+                elif message == "/no":
+                    result = self._handle_notice_no()
+                    self.logger.log_command("/no", user_id, result)
+                    return result
+
+            if self._notice_state["active"] and not message.startswith("/"):
+                result = self._handle_notice(message)
+                self.logger.log_command(f"公告内容({len(self._notice_state['messages'])}/{self._notice_state['expected_count']})", user_id, result)
+                return result
+
         # 处理指令
         if message == "/register":
             result = self._handle_register(user_id)
@@ -223,13 +244,17 @@ class MessageHandler:
             self.logger.log_command("/select", user_id, result[:100] if result else "无数据")
             return result
         elif message == "/help":
-            result = self._handle_help()
+            result = self._handle_help(user_id)
             self.logger.log_command("/help", user_id, "显示帮助信息")
+            return result
+        elif is_admin and message.startswith("/notice"):
+            result = self._handle_notice_start(message)
+            self.logger.log_command("/notice", user_id, result)
             return result
         else:
             self.logger.info(f"收到非指令私聊消息: {user_id}: {message}")
             # 非指令消息，提示可用指令
-            result = self._handle_help()
+            result = self._handle_help(user_id)
             self.logger.log_command("非指令消息", user_id, "提示可用指令")
             return result
     
@@ -275,7 +300,7 @@ class MessageHandler:
         
         return "\n".join(response_lines)
     
-    def _handle_help(self) -> str:
+    def _handle_help(self, user_id: Optional[str] = None) -> str:
         """处理帮助指令，显示所有可用指令"""
         help_text = """可用指令：
 
@@ -287,7 +312,65 @@ class MessageHandler:
 1. 发送 /register 后，机器人会开始统计您在群聊中的消息
 2. 发送 /select 可以查看您的消息统计
 3. 统计每分钟自动保存一次"""
+        if user_id and str(user_id) == str(config.ADMIN_QQ):
+            help_text += """
+
+管理员指令：
+/notice N - 发布公告，N 为公告条数"""
         return help_text
+
+    def _handle_notice_start(self, message: str) -> str:
+        """处理 /notice N 指令，开始公告收集"""
+        parts = message.split()
+        if len(parts) != 2 or not parts[1].isdigit():
+            return "格式错误，请使用 /notice N（N 为公告条数）"
+        count = int(parts[1])
+        if count <= 0:
+            return "公告条数必须大于 0"
+        self._notice_state = {
+            "active": True,
+            "expected_count": count,
+            "messages": [],
+            "awaiting_confirm": False
+        }
+        self.logger.info(f"管理员开始收集公告，共 {count} 条")
+        return f"已进入公告收集模式，请发送 {count} 条公告内容"
+
+    def _handle_notice(self, message: str) -> str:
+        """收集公告内容"""
+        self._notice_state["messages"].append(message)
+        current = len(self._notice_state["messages"])
+        expected = self._notice_state["expected_count"]
+
+        if current >= expected:
+            self._notice_state["active"] = False
+            self._notice_state["awaiting_confirm"] = True
+            msg_list = "\n".join(f"{i+1}. {m}" for i, m in enumerate(self._notice_state["messages"]))
+            self.logger.info("公告收集完成，等待确认", {"messages": self._notice_state["messages"]})
+            return f"已收集全部 {expected} 条公告：\n{msg_list}\n\n发送 /yes 确认发布，/no 取消发布"
+        else:
+            remaining = expected - current
+            self.logger.info(f"已接收第 {current} 条公告，还剩 {remaining} 条")
+            return f"已接收第 {current} 条，还剩 {remaining} 条"
+
+    def _handle_notice_yes(self, send_private_msg=None) -> str:
+        """确认发布公告，广播给所有关注者"""
+        admin_id = str(config.ADMIN_QQ)
+        if send_private_msg:
+            for follow in self.follows:
+                if follow == admin_id:
+                    continue
+                for msg in self._notice_state["messages"]:
+                    send_private_msg(int(follow), msg)
+        self._notice_state = {"active": False, "expected_count": 0, "messages": [], "awaiting_confirm": False}
+        self.logger.info("公告发布成功")
+        return "公告发布成功"
+
+    def _handle_notice_no(self) -> str:
+        """取消发布公告"""
+        self._notice_state = {"active": False, "expected_count": 0, "messages": [], "awaiting_confirm": False}
+        self.logger.info("取消发布成功")
+        return "取消发布成功"
     
     def get_statistics_summary(self) -> Dict:
         """获取统计摘要"""

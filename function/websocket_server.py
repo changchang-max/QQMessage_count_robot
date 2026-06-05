@@ -61,8 +61,17 @@ class WebSocketServer:
             message_data = json.loads(message)
             self.logger.debug("收到原始消息", {"raw_message": message[:200]})
 
+            async def _send_to_user(uid, msg):
+                action = {"action": "send_private_msg", "params": {"user_id": uid, "message": msg}}
+                await websocket.send(json.dumps(action, ensure_ascii=False))
+
+            def send_private_msg(uid, msg):
+                asyncio.create_task(_send_to_user(uid, msg))
+
             # 处理消息，返回 (reply_text, action_data)
-            reply_text, action_data = self.message_handler.handle_message(message_data)
+            reply_text, action_data = self.message_handler.handle_message(
+                message_data, send_private_msg=send_private_msg
+            )
 
             self.heartbeat.notify()
 
