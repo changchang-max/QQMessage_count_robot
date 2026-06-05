@@ -1,40 +1,51 @@
 import asyncio
 import websockets
 
+from .logger import get_logger
+
 TOKEN = "napcat_token_070421"
+
+logger = get_logger()
 
 
 async def handler(websocket):
 
-    # 获取请求头
     auth = websocket.request.headers.get("Authorization")
 
-    # 校验 token
     if auth != f"Bearer {TOKEN}":
-        print("Token错误:", auth)
+        msg = f"Token 验证失败: {auth}"
+        print(msg)
+        logger.warning(msg)
 
         await websocket.close()
 
         return
 
-    print("NapCat 已连接")
+    msg = "NapCat 反向 WS 已连接"
+    print(msg)
+    logger.info(msg)
 
     try:
 
         async for message in websocket:
 
-            print("收到消息:")
+            print("收到新消息:")
             print(message)
             print("-" * 50)
+            logger.info(f"收到消息: {message}")
 
     except websockets.ConnectionClosed:
 
-        print("连接断开")
+        msg = "连接已断开"
+        print(msg)
+        logger.warning(msg)
 
 
 async def main():
 
-    print("等待 ws://localhost:9001 主动连接...")
+    msg = "等待 NapCat 反向连接..."
+    print(msg)
+    logger.info(msg)
 
     server = await websockets.serve(
         handler,

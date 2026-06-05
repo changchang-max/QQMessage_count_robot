@@ -3,6 +3,10 @@ import os
 from datetime import datetime
 from typing import Dict, Any
 
+from function.logger import get_logger
+
+logger = get_logger()
+
 def ensure_directory(directory: str):
     """确保目录存在"""
     os.makedirs(directory, exist_ok=True)
@@ -15,6 +19,7 @@ def save_json(data: Dict, file_path: str):
         return True
     except Exception as e:
         print(f"保存JSON文件失败 {file_path}: {e}")
+        logger.error(f"保存JSON文件失败 {file_path}: {e}")
         return False
 
 def load_json(file_path: str) -> Dict:
@@ -27,6 +32,7 @@ def load_json(file_path: str) -> Dict:
             return json.load(f)
     except Exception as e:
         print(f"加载JSON文件失败 {file_path}: {e}")
+        logger.error(f"加载JSON文件失败 {file_path}: {e}")
         return {}
 
 def timestamp_to_date(timestamp: int) -> str:
@@ -56,10 +62,12 @@ def validate_message_data(data: Dict[str, Any]) -> bool:
     for field in required_fields:
         if field not in data:
             print(f"消息缺少必要字段: {field}")
+            logger.error(f"消息缺少必要字段: {field}")
             return False
     
     if data["message_type"] == "group" and "group_id" not in data:
         print("群聊消息缺少 group_id 字段")
+        logger.error("群聊消息缺少 group_id 字段")
         return False
     
     return True

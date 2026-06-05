@@ -151,12 +151,21 @@ class AsyncLogger:
             message_type = message_data.get("message_type", "unknown")
             user_id = message_data.get("user_id", "unknown")
             group_id = message_data.get("group_id", "private")
+            raw_message = message_data.get("raw_message", "")[:100]
+            
+            ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            if message_type == "group":
+                print(f"[{ts}] [群聊] 用户: {user_id} | 群: {group_id} | 内容: {raw_message}")
+            elif message_type == "private":
+                print(f"[{ts}] [私聊] 用户: {user_id} | 内容: {raw_message}")
+            else:
+                print(f"[{ts}] [{message_type}] 用户: {user_id} | 内容: {raw_message}")
             
             extra = {
                 "message_type": message_type,
                 "user_id": user_id,
                 "group_id": group_id,
-                "raw_message": message_data.get("raw_message", "")[:100]  # 只记录前100字符
+                "raw_message": raw_message
             }
             
             if message_type == "group":

@@ -4,6 +4,10 @@ QQ机器人配置文件
 """
 
 import os
+from dotenv import load_dotenv
+
+# 加载 environment.env（如果存在）
+load_dotenv("environment.env")
 
 # WebSocket服务器配置
 WS_HOST = "0.0.0.0"
@@ -23,3 +27,8 @@ QUERY_DAYS = 7
 
 # 调试模式
 DEBUG = True
+
+# QQ邮箱配置
+EMAIL_SENDER = os.environ.get("QQ_EMAIL_SENDER", "")
+EMAIL_RECEIVER = os.environ.get("QQ_EMAIL_RECEIVER", "")
+EMAIL_AUTH_CODE = os.environ.get("QQ_EMAIL_AUTH_CODE", "")

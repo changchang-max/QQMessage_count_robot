@@ -4,6 +4,7 @@ import json
 import os
 import sys
 from .message_handler import MessageHandler
+from .heartbeat import HeartbeatMonitor
 from .logger import get_logger
 
 # 添加项目根目录到Python路径
@@ -28,6 +29,7 @@ class WebSocketServer:
             self.token = token or "napcat_token_070421"
         
         self.message_handler = MessageHandler()
+        self.heartbeat = HeartbeatMonitor()
         self.logger = get_logger()
     
     async def handler(self, websocket):
@@ -62,7 +64,8 @@ class WebSocketServer:
             # 处理消息，返回 (reply_text, action_data)
             reply_text, action_data = self.message_handler.handle_message(message_data)
 
-            # 发送文本回复（私聊）
+            self.heartbeat.notify()
+
             if reply_text:
                 reply = {
                     "action": "send_private_msg",
@@ -106,6 +109,8 @@ class WebSocketServer:
         # 显示统计信息
         stats = self.message_handler.get_statistics_summary()
         self.logger.info("服务器启动统计信息", stats)
+
+        await self.heartbeat.start()
         
         await server.wait_closed()
     
@@ -118,4 +123,5 @@ class WebSocketServer:
         except Exception as e:
             self.logger.error(f"服务器运行异常: {e}")
         finally:
+            asyncio.run(self.heartbeat.stop())
             self.logger.info("服务器已停止")
