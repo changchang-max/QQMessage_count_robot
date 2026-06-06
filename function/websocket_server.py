@@ -73,7 +73,8 @@ class WebSocketServer:
                 message_data, send_private_msg=send_private_msg
             )
 
-            self.heartbeat.notify()
+            if "user_id" in message_data or "group_id" in message_data:
+                self.heartbeat.notify()
 
             if reply_text:
                 reply = {
