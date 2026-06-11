@@ -1,31 +1,66 @@
 import asyncio
+from enum import Enum
+from typing import Callable, Optional
 from .logger import get_logger
-from .email_sender import send_email
 
 logger = get_logger()
 
-class HeartbeatMonitor:
-    MAX_ALERTS = 3
 
-    def __init__(self, interval: int = 300):
-        self._interval = interval
-        self._has_message = False
-        self._alert_count = 0
+class HeartbeatState(Enum):
+    MONITORING = "MONITORING"
+    ALERTING = "ALERTING"
+
+
+class HeartbeatMonitor:
+    def __init__(self, interval: Optional[int] = None, reply_timeout: Optional[int] = None):
+        try:
+            import config
+            self._interval = interval or getattr(config, "HEARTBEAT_INTERVAL", 300)
+            self._reply_timeout = reply_timeout or getattr(config, "HEARTBEAT_REPLY_TIMEOUT", 120)
+        except (ImportError, AttributeError):
+            self._interval = interval or 300
+            self._reply_timeout = reply_timeout or 120
+
+        self._state = HeartbeatState.MONITORING
         self._running = False
         self._task = None
 
+        self.on_send_alert: Optional[Callable[[], Optional[tuple[int, int, str]]]] = None
+        self.on_send_email: Optional[Callable[[], None]] = None
+
+        self._alert_group_id = None
+        self._alert_target_qq = None
+        self._elapsed = 0
+
+    @property
+    def state(self) -> str:
+        return self._state.value
+
     def notify(self):
-        self._has_message = True
-        if self._alert_count > 0:
-            self._alert_count = 0
-            logger.info("心跳: 收到消息，重置提醒次数")
+        if self._state == HeartbeatState.MONITORING:
+            self._elapsed = 0
+            logger.info(f"心跳: 收到消息，重置静默计时器 [state={self._state.value}]")
+
+    def notify_reply(self, group_id: int, user_id: int):
+        if self._state == HeartbeatState.ALERTING:
+            if group_id == self._alert_group_id and user_id == self._alert_target_qq:
+                logger.info(f"心跳: 收到目标回复 群:{group_id} QQ:{user_id}，恢复 MONITORING")
+                self._reset_to_monitoring()
+            else:
+                logger.info(f"心跳: 忽略非目标回复 群:{group_id} QQ:{user_id} [state={self._state.value}]")
+
+    def _reset_to_monitoring(self):
+        self._state = HeartbeatState.MONITORING
+        self._elapsed = 0
+        self._alert_group_id = None
+        self._alert_target_qq = None
 
     async def start(self):
         if self._running:
             return
         self._running = True
         self._task = asyncio.create_task(self._cycle())
-        logger.info(f"心跳监控已启动，检测周期 {self._interval} 秒")
+        logger.info(f"心跳监控已启动 (interval={self._interval}s, reply_timeout={self._reply_timeout}s) state={self._state.value}")
 
     async def stop(self):
         self._running = False
@@ -36,18 +71,34 @@ class HeartbeatMonitor:
 
     async def _cycle(self):
         while self._running:
-            await asyncio.sleep(self._interval)
+            await asyncio.sleep(1)
+            self._elapsed += 1
 
-            if self._has_message:
-                logger.info("心跳: 本周期收到消息，跳过告警")
-                self._has_message = False
-            else:
-                self._alert_count += 1
-                if self._alert_count <= self.MAX_ALERTS:
-                    logger.warning(f"心跳: 第 {self._alert_count}/{self.MAX_ALERTS} 次未收到消息，发送告警邮件")
-                    send_email(
-                        subject=f"QQ机器人心跳告警 (第{self._alert_count}次提醒)",
-                        body=f"QQ 机器人已连续 {self._interval // 60} 分钟未收到任何消息，可能已掉线，请检查。\n\n这是第 {self._alert_count} 次提醒，共 {self.MAX_ALERTS} 次。"
-                    )
-                else:
-                    logger.warning(f"心跳: 第 {self._alert_count} 次未收到消息，已超过最大提醒次数 ({self.MAX_ALERTS})，不再发送邮件")
+            if self._state == HeartbeatState.MONITORING:
+                if self._elapsed >= self._interval:
+                    logger.warning(f"心跳: 静默 {self._interval}s，触发告警")
+                    try:
+                        alert_cb = self.on_send_alert
+                        if alert_cb:
+                            result = alert_cb()
+                            if result and len(result) == 3:
+                                self._alert_group_id, self._alert_target_qq, _ = result
+                                self._state = HeartbeatState.ALERTING
+                                self._elapsed = 0
+                                logger.info(f"心跳: MONITORING -> ALERTING (等待回复 群:{self._alert_group_id} QQ:{self._alert_target_qq})")
+                                continue
+                    except Exception as e:
+                        logger.error(f"心跳: on_send_alert 回调异常: {e}")
+                    self._elapsed = 0
+
+            elif self._state == HeartbeatState.ALERTING:
+                if self._elapsed >= self._reply_timeout:
+                    logger.warning(f"心跳: 回复超时 {self._reply_timeout}s")
+                    try:
+                        email_cb = self.on_send_email
+                        if email_cb:
+                            email_cb()
+                    except Exception as e:
+                        logger.error(f"心跳: on_send_email 回调异常: {e}")
+                    self._reset_to_monitoring()
+                    logger.info("心跳: ALERTING -> MONITORING (回复超时)")

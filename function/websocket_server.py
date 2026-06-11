@@ -5,6 +5,7 @@ import os
 import sys
 from .message_handler import MessageHandler
 from .heartbeat import HeartbeatMonitor
+from .email_sender import send_email
 from .logger import get_logger
 
 # 添加项目根目录到Python路径
@@ -30,6 +31,9 @@ class WebSocketServer:
         
         self.message_handler = MessageHandler()
         self.heartbeat = HeartbeatMonitor()
+        self.heartbeat.on_send_alert = self._heartbeat_send_alert
+        self.heartbeat.on_send_email = self._heartbeat_send_email
+        self._current_websocket = None
         self.logger = get_logger()
     
     async def handler(self, websocket):
@@ -44,6 +48,7 @@ class WebSocketServer:
             return
         
         self.logger.info("NapCat WebSocket连接已建立")
+        self._current_websocket = websocket
         
         try:
             async for message in websocket:
@@ -73,7 +78,14 @@ class WebSocketServer:
                 message_data, send_private_msg=send_private_msg
             )
 
-            if "user_id" in message_data or "group_id" in message_data:
+            if "user_id" in message_data:
+                self.heartbeat.notify()
+                if message_data.get("message_type") == "group":
+                    self.heartbeat.notify_reply(
+                        message_data.get("group_id", 0),
+                        message_data["user_id"],
+                    )
+            elif "group_id" in message_data:
                 self.heartbeat.notify()
 
             if reply_text:
@@ -103,6 +115,29 @@ class WebSocketServer:
         except Exception as e:
             self.logger.error(f"处理消息时出错: {e}")
     
+    def _heartbeat_send_alert(self):
+        group_id = int(config.HEARTBEAT_GROUP_ID) if HAS_CONFIG and config.HEARTBEAT_GROUP_ID else 0
+        target_qq = int(config.HEARTBEAT_TARGET_QQ) if HAS_CONFIG and config.HEARTBEAT_TARGET_QQ else 0
+        send_message = config.HEARTBEAT_SEND_MESSAGE if HAS_CONFIG and config.HEARTBEAT_TARGET_QQ else "心跳消息"
+        if not group_id or not target_qq:
+            self.logger.warning("心跳告警: 未配置 HEARTBEAT_GROUP_ID 或 HEARTBEAT_TARGET_QQ，无法发送告警消息")
+            return None
+        message = f"{send_message}"
+        ws = self._current_websocket
+        if ws:
+            action = {
+                "action": "send_group_msg",
+                "params": {"group_id": group_id, "message": f"[CQ:at,qq={target_qq}] {message}"},
+            }
+            asyncio.create_task(ws.send(json.dumps(action, ensure_ascii=False)))
+        return (group_id, target_qq, message)
+
+    def _heartbeat_send_email(self):
+        send_email(
+            subject="QQ机器人回复超时",
+            content="心跳告警已发送但未收到目标用户回复，请检查机器人状态。",
+        )
+
     async def start(self):
         """启动WebSocket服务器"""
         self.logger.info(f"启动WebSocket服务器，监听 {self.host}:{self.port}")
