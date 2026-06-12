@@ -31,6 +31,7 @@ class HeartbeatMonitor:
         self._alert_group_id = None
         self._alert_target_qq = None
         self._elapsed = 0
+        self._email_sent_for_current_alert = False
 
     @property
     def state(self) -> str:
@@ -54,6 +55,7 @@ class HeartbeatMonitor:
         self._elapsed = 0
         self._alert_group_id = None
         self._alert_target_qq = None
+        self._email_sent_for_current_alert = False
 
     async def start(self):
         if self._running:
@@ -85,6 +87,7 @@ class HeartbeatMonitor:
                                 self._alert_group_id, self._alert_target_qq, _ = result
                                 self._state = HeartbeatState.ALERTING
                                 self._elapsed = 0
+                                self._email_sent_for_current_alert = False
                                 logger.info(f"心跳: MONITORING -> ALERTING (等待回复 群:{self._alert_group_id} QQ:{self._alert_target_qq})")
                                 continue
                     except Exception as e:
@@ -92,7 +95,7 @@ class HeartbeatMonitor:
                     self._elapsed = 0
 
             elif self._state == HeartbeatState.ALERTING:
-                if self._elapsed >= self._reply_timeout:
+                if self._elapsed >= self._reply_timeout and not self._email_sent_for_current_alert:
                     logger.warning(f"心跳: 回复超时 {self._reply_timeout}s")
                     try:
                         email_cb = self.on_send_email
@@ -100,5 +103,7 @@ class HeartbeatMonitor:
                             email_cb()
                     except Exception as e:
                         logger.error(f"心跳: on_send_email 回调异常: {e}")
-                    self._reset_to_monitoring()
-                    logger.info("心跳: ALERTING -> MONITORING (回复超时)")
+                    self._email_sent_for_current_alert = True
+                    logger.info("心跳: 邮件已发送，等待目标用户回复...")
+                elif self._email_sent_for_current_alert:
+                    logger.info("心跳: 邮件已发送，等待目标用户回复... [skip]")
