@@ -12,8 +12,8 @@ import config
 
 class MessageHandler:
     def __init__(self):
-        self.messages_dir = "messages"
-        self.configs_dir = "configs"
+        self.messages_dir = "data/messages"
+        self.configs_dir = "data/configs"
         self.follows_file = os.path.join(self.configs_dir, "follows.txt")
         self.save_interval = 60  # 保存间隔（秒）
         self._data_cache = {}  # 内存缓存，减少磁盘IO

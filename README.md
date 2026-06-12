@@ -18,9 +18,11 @@ qqrobot/
 ├── main.py              # 主程序（极简）
 ├── config.py           # 配置文件
 ├── environment.env     # 环境变量配置文件（邮件提醒相关）
-├── configs/            # 配置文件目录（自动生成）
-│   └── follows.txt     # 关注用户列表（自动生成）
-├── messages/           # 用户消息数据目录（自动生成）
+├── data/               # 数据目录（自动生成）
+│   ├── configs/        # 配置文件目录（自动生成）
+│   │   └── follows.txt # 关注用户列表（自动生成）
+│   ├── logs/           # 日志文件目录（自动生成）
+│   └── messages/       # 用户消息数据目录（自动生成）
 ├── function/           # 功能模块
 │   ├── __init__.py
 │   ├── message_handler.py      # 消息处理器
@@ -83,20 +85,20 @@ python main.py
 ### 消息处理流程
 
 1. **群聊消息**：
-   - 检查发送者是否在 `configs/follows.txt` 关注列表中
-   - 如果在，则记录该用户在当天的消息数量
-   - 每分钟自动保存到 `messages/{用户QQ}.json` 文件
+   - 检查发送者是否在 `data/configs/follows.txt` 关注列表中
+    - 如果在，则记录该用户在当天的消息数量
+    - 每分钟自动保存到 `data/messages/{用户QQ}.json` 文件
 
 2. **私聊消息**：
    - 支持三个指令：
-     - `/register`：关注当前用户，将其QQ号添加到 `configs/follows.txt`
+     - `/register`：关注当前用户，将其QQ号添加到 `data/configs/follows.txt`
      - `/select`：查询当前用户最近7天在各群聊的消息数量
      - `/help`：显示所有可用指令的帮助信息
    - 其他消息：自动回复可用指令列表
 
 ### 数据格式
 
-#### 用户数据文件 (`messages/{用户QQ}.json`)
+#### 用户数据文件 (`data/messages/{用户QQ}.json`)
 ```json
 {
   "2026-05-29": {
@@ -114,7 +116,7 @@ python main.py
 }
 ```
 
-#### 关注列表文件 (`configs/follows.txt`)
+#### 关注列表文件 (`data/configs/follows.txt`)
 ```
 3338366373
 2774118934
@@ -219,7 +221,7 @@ QQ机器人连接状态异常！
 ## 注意事项
 
 1. 确保NapCat的WebSocket服务器已正确配置
-2. 首次运行会自动创建 `messages/`、`configs/` 目录和 `configs/follows.txt` 文件
+2. 首次运行会自动创建 `data/` 目录及其子目录 `data/messages/`、`data/configs/` 和 `data/configs/follows.txt` 文件
 3. 数据每分钟自动保存，程序异常退出时可能会丢失最近1分钟的数据
 4. 关注列表修改后立即生效，无需重启程序
 5. 私聊发送任何非指令消息都会收到可用指令提示
@@ -229,7 +231,7 @@ QQ机器人连接状态异常！
 ## 故障排除
 
 1. **连接失败**：检查NapCat是否运行，Token是否正确
-2. **数据未保存**：检查 `messages/` 目录权限
+2. **数据未保存**：检查 `data/messages/` 目录权限
 3. **指令无效**：检查私聊消息格式是否正确
 4. **统计不准确**：检查用户是否在关注列表中
 5. **心跳检测邮件未发送**：

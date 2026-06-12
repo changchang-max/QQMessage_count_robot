@@ -15,8 +15,8 @@ WS_PORT = 9001
 WS_TOKEN = os.environ.get("NAPCAT_TOKEN", "napcat_token_070421")
 
 # 数据存储配置
-MESSAGES_DIR = "messages"
-CONFIGS_DIR = "configs"
+MESSAGES_DIR = "data/messages"
+CONFIGS_DIR = "data/configs"
 FOLLOWS_FILE = "follows.txt"
 
 # 保存间隔（秒）

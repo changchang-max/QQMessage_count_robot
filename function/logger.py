@@ -15,7 +15,7 @@ class LogLevel(Enum):
     CRITICAL = "CRITICAL"
 
 class AsyncLogger:
-    def __init__(self, logs_dir: str = "logs", max_queue_size: int = 1000):
+    def __init__(self, logs_dir: str = "data/logs", max_queue_size: int = 1000):
         self.logs_dir = logs_dir
         self.max_queue_size = max_queue_size
         self.log_queue = queue.Queue(maxsize=max_queue_size)
