@@ -52,7 +52,7 @@ pip install -r requirements.txt
 pip install websockets python-dotenv
 ```
 
-### 2. 配置环境变量
+### 2. 配置环境变量(详细请以config.py文件中为主，在.env文件中配置)
 
 复制 `environment.env.example` 为 `environment.env`，并填写以下配置：
 
@@ -118,8 +118,8 @@ python main.py
 
 #### 关注列表文件 (`data/configs/follows.txt`)
 ```
-3338366373
-2774118934
+12345678
+12222456
 ```
 
 ### 指令示例

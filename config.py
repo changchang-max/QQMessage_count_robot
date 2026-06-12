@@ -31,14 +31,22 @@ ADMIN_QQ = os.environ.get("ADMIN_QQ", "")
 # 调试模式
 DEBUG = True
 
-# 心跳监控配置
+# -------------心跳监控配置----------------
+# 心跳间隔（秒）
 HEARTBEAT_INTERVAL = int(os.environ.get("HEARTBEAT_INTERVAL", "300"))
+# 回复超时（秒）
 HEARTBEAT_REPLY_TIMEOUT = int(os.environ.get("HEARTBEAT_REPLY_TIMEOUT", "120"))
+# 告警群(群号)
 HEARTBEAT_GROUP_ID = int(os.environ.get("HEARTBEAT_GROUP_ID", "0"))
+# 告警目标QQ
 HEARTBEAT_TARGET_QQ = int(os.environ.get("HEARTBEAT_TARGET_QQ", "0"))
+# 告警消息
 HEARTBEAT_SEND_MESSAGE = os.environ.get("HEARTBEAT_SEND_MESSAGE","心跳告警: 机器人超过5分钟未收到消息，请回复以确认正常运行。")
 
-# QQ邮箱配置
+# --------QQ邮箱配置--------------
+# 发送方邮箱
 EMAIL_SENDER = os.environ.get("QQ_EMAIL_SENDER", "")
+# 接收方邮箱
 EMAIL_RECEIVER = os.environ.get("QQ_EMAIL_RECEIVER", "")
+# 发送方邮箱授权码
 EMAIL_AUTH_CODE = os.environ.get("QQ_EMAIL_AUTH_CODE", "")
