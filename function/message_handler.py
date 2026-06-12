@@ -41,6 +41,7 @@ class MessageHandler:
         self.group_invite_handler = GroupInviteHandler()
 
         self._notice_state = {"active": False, "expected_count": 0, "messages": [], "awaiting_confirm": False}
+        self._pending_confirmations = {}  # user_id -> action (e.g. "unfollow")
     
     def _load_follows(self) -> set:
         """加载关注列表"""
@@ -217,21 +218,31 @@ class MessageHandler:
         message = message_data.get("message", "").strip()
         is_admin = (user_id == str(config.ADMIN_QQ))
 
-        # 管理员公告流程
-        if is_admin:
-            if self._notice_state["awaiting_confirm"]:
-                if message == "/yes":
-                    result = self._handle_notice_yes(send_private_msg)
-                    self.logger.log_command("/yes", user_id, result)
-                    return result
-                elif message == "/no":
-                    result = self._handle_notice_no()
-                    self.logger.log_command("/no", user_id, result)
-                    return result
+        # 管理员公告流程（优先）
+        if is_admin and self._notice_state["awaiting_confirm"]:
+            if message == "/yes":
+                result = self._handle_notice_yes(send_private_msg)
+                self.logger.log_command("/yes", user_id, result)
+                return result
+            elif message == "/no":
+                result = self._handle_notice_no()
+                self.logger.log_command("/no", user_id, result)
+                return result
 
-            if self._notice_state["active"] and not message.startswith("/"):
-                result = self._handle_notice(message)
-                self.logger.log_command(f"公告内容({len(self._notice_state['messages'])}/{self._notice_state['expected_count']})", user_id, result)
+        if is_admin and self._notice_state["active"] and not message.startswith("/"):
+            result = self._handle_notice(message)
+            self.logger.log_command(f"公告内容({len(self._notice_state['messages'])}/{self._notice_state['expected_count']})", user_id, result)
+            return result
+
+        # 待确认操作流程（非公告相关）
+        if user_id in self._pending_confirmations:
+            if message == "/yes":
+                result = self._handle_confirmation_yes(user_id)
+                self.logger.log_command("/yes", user_id, result)
+                return result
+            elif message == "/no":
+                result = self._handle_confirmation_no(user_id)
+                self.logger.log_command("/no", user_id, result)
                 return result
 
         # 处理指令
@@ -239,13 +250,41 @@ class MessageHandler:
             result = self._handle_register(user_id)
             self.logger.log_command("/register", user_id, result)
             return result
-        elif message == "/select":
-            result = self._handle_select(user_id)
-            self.logger.log_command("/select", user_id, result[:100] if result else "无数据")
+        elif message.startswith("/select"):
+            parts = message.split()
+            if len(parts) == 1:
+                result = self._handle_select(user_id)
+                self.logger.log_command("/select", user_id, result[:100] if result else "无数据")
+            elif len(parts) == 2:
+                if parts[1] == "week":
+                    result = self._handle_select(user_id, "week")
+                    self.logger.log_command("/select week", user_id, result[:100] if result else "无数据")
+                elif parts[1].isdigit():
+                    if not is_admin:
+                        result = "无权查询其他用户的信息。"
+                    else:
+                        result = self._handle_select(parts[1])
+                    self.logger.log_command(f"/select {parts[1]}", user_id, result[:100] if result else "无数据")
+                else:
+                    result = "格式错误。用法：/select（当天）或 /select week（近7天）"
+                    self.logger.log_command("/select", user_id, result)
+            elif len(parts) == 3 and parts[1] == "week" and parts[2].isdigit():
+                if not is_admin:
+                    result = "无权查询其他用户的信息。"
+                else:
+                    result = self._handle_select(parts[2], "week")
+                self.logger.log_command(f"/select week {parts[2]}", user_id, result[:100] if result else "无数据")
+            else:
+                result = "格式错误。用法：/select（当天）或 /select week（近7天）"
+                self.logger.log_command("/select", user_id, result)
             return result
         elif message == "/help":
             result = self._handle_help(user_id)
             self.logger.log_command("/help", user_id, "显示帮助信息")
+            return result
+        elif message == "/unfollow":
+            result = self._handle_unfollow(user_id)
+            self.logger.log_command("/unfollow", user_id, result)
             return result
         elif is_admin and message.startswith("/notice"):
             result = self._handle_notice_start(message)
@@ -269,19 +308,19 @@ class MessageHandler:
         self.logger.info(f"用户 {user_id} 关注成功")
         return "关注成功！"
     
-    def _handle_select(self, user_id: str) -> str:
+    def _handle_select(self, user_id: str, arg: str = "") -> str:
         """处理查询指令"""
         user_data = self._load_user_data(user_id)
         
         if not user_data:
             return "您还没有任何聊天记录。"
         
-        # 获取最近7天的日期
         today = datetime.now()
-        recent_dates = []
-        for i in range(7):
-            date = today - timedelta(days=i)
-            recent_dates.append(date.strftime("%Y-%m-%d"))
+        
+        if arg == "week":
+            recent_dates = [(today - timedelta(days=i)).strftime("%Y-%m-%d") for i in range(7)]
+        else:
+            recent_dates = [today.strftime("%Y-%m-%d")]
         
         # 构建回复消息
         response_lines = []
@@ -296,27 +335,59 @@ class MessageHandler:
                         response_lines.append(f"  {group_name}  消息数：{count}")
         
         if not response_lines:
-            return "最近7天没有聊天记录。"
+            return "最近7天没有聊天记录。" if arg == "week" else "今天没有聊天记录。"
         
         return "\n".join(response_lines)
     
+    def _handle_unfollow(self, user_id: str) -> str:
+        """处理取消关注指令"""
+        if user_id not in self.follows:
+            return "您尚未关注。"
+        
+        self._pending_confirmations[user_id] = "unfollow"
+        return "确认取消关注？发送 /yes 确认，/no 取消"
+
+    def _handle_confirmation_yes(self, user_id: str) -> str:
+        """处理确认操作"""
+        action = self._pending_confirmations.pop(user_id, None)
+        if action == "unfollow":
+            if user_id in self.follows:
+                self.follows.remove(user_id)
+                self._save_follows()
+                file_path = self._get_user_file_path(user_id)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                return "已取消关注并清空消息记录。"
+            return "您不在关注列表中。"
+        return "没有待确认的操作。"
+
+    def _handle_confirmation_no(self, user_id: str) -> str:
+        """处理取消操作"""
+        self._pending_confirmations.pop(user_id, None)
+        return "已取消操作。"
+
     def _handle_help(self, user_id: Optional[str] = None) -> str:
         """处理帮助指令，显示所有可用指令"""
         help_text = """可用指令：
 
 /register - 关注当前用户，开始统计您的群聊消息
-/select   - 查询您最近7天在各群聊的消息数量
+/select   - 查询您今天在各群聊的消息数量
+/select week - 查询您最近7天在各群聊的消息数量
+/unfollow - 取消关注
 /help     - 显示此帮助信息
 
 说明：
 1. 发送 /register 后，机器人会开始统计您在群聊中的消息
-2. 发送 /select 可以查看您的消息统计
-3. 统计每分钟自动保存一次"""
+2. 发送 /select 可以查看当天的消息统计
+3. 发送 /select week 可以查看近7天的消息统计
+4. 统计每分钟自动保存一次"""
         if user_id and str(user_id) == str(config.ADMIN_QQ):
             help_text += """
 
 管理员指令：
-/notice N - 发布公告，N 为公告条数"""
+/notice N       - 发布公告，N 为公告条数
+/select QQ号    - 查询指定QQ用户当天的消息数
+/select week QQ号 - 查询指定QQ用户近7天的消息数"""
         return help_text
 
     def _handle_notice_start(self, message: str) -> str:
