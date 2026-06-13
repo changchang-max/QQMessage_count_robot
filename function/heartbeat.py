@@ -41,6 +41,9 @@ class HeartbeatMonitor:
         if self._state == HeartbeatState.MONITORING:
             self._elapsed = 0
             logger.info(f"心跳: 收到消息，重置静默计时器 [state={self._state.value}]")
+        elif self._state == HeartbeatState.ALERTING:
+            logger.info("心跳: 恢复 MONITORING (收到消息)")
+            self._reset_to_monitoring()
 
     def notify_reply(self, group_id: int, user_id: int):
         if self._state == HeartbeatState.ALERTING:
